@@ -1,102 +1,72 @@
-# Class: tuned
+# @summary Configure the tuned adaptive system tuning daemon (tuned)
 #
-# The tuned adaptative system tuning daemon, introduced with Red Hat Enterprise
-# Linux 6.
+# @example Basic usage
+#   include tuned
 #
-# Parameters:
-#  $ensure:
-#    Presence of tuned, 'absent' to disable and remove. Default: 'present'
-#  $profile:
-#    Profile to use, see 'tuned-adm list'. Default: 'default'
-#  $source:
-#    Puppet source location for the profile's files, used only for non-default
-#    profiles. Default: none
+# @see https://tuned-project.org/
+#
+# @param ensure
+#   Presence of tuned, 'absent' to disable and remove. Default: 'present'
+# @param profile
+#   Profile to use, see 'tuned-adm list'. Default: 'balanced'
+# @param source
+#   Puppet source location for the profile's files, used only for non-default
+#   profiles. Default: undef
+# @param active_profile
+#   Name of the file, where the currently active profile is stored. Default: OS specific value
+# @param profile_path
+#   Path to the directory, where tuned stores profiles. Default: OS specific value
+# @param tuned_services
+#   Array of service names of the tuned daemon(s). Default: OS specific value
 #
 class tuned (
-  $ensure         = 'present',
-  $profile        = $::tuned::params::default_profile,
-  $source         = undef,
-  $tuned_services = $::tuned::params::tuned_services,
-  $profile_path   = $::tuned::params::profile_path,
-  $active_profile = $::tuned::params::active_profile,
-) inherits ::tuned::params {
+  Enum['present', 'absent'] $ensure = 'present',
+  String $profile                   = $tuned::params::default_profile,
+  Optional[String] $source          = undef,
+  String $active_profile            = $tuned::params::active_profile,
+  String $profile_path              = $tuned::params::profile_path,
+  Array $tuned_services             = $tuned::params::tuned_services,
+) inherits tuned::params {
 
-  # Support old facter versions without 'osfamily'
-  if ( $::operatingsystem == 'Fedora' ) or
-    ( $::operatingsystem =~ /^(RedHat|CentOS|Scientific|OracleLinux|CloudLinux)$/ and versioncmp($::operatingsystemrelease, '6') >= 0 ) {
-
-    # One package
-    package { 'tuned': ensure => $ensure }
-
-    # Only if we are 'present'
-    if $ensure != 'absent' {
-
-      # Ensure tuned is started before some DBMS, for when it's used to disable
-      # transparent hugepages
-      if $::service_provider == 'systemd' {
-        file { '/etc/systemd/system/tuned.service.d':
-          ensure => 'directory',
-          owner  => 'root',
-          group  => 'root',
-          mode   => '0755',
-        }
-        file { '/etc/systemd/system/tuned.service.d/before.conf':
-          owner   => 'root',
-          group   => 'root',
-          mode    => '0644',
-          content => "[Unit]\nBefore=mariadb.service mongod.service redis-server.service\n",
-        }
-        ~> exec { 'tuned systemctl daemon-reload':
-          command     => 'systemctl daemon-reload',
-          path        => $::path,
-          refreshonly => true,
-          before      => Service['tuned'],
-        }
-      }
-      # Enable the service
-      service { $tuned_services:
-        ensure    => 'running',
-        enable    => true,
-        hasstatus => true,
-        require   => Package['tuned'],
-      }
-
-      # Enable the chosen profile
-      exec { "tuned-adm profile ${profile}":
-        unless  => "grep -q -e '^${profile}\$' ${profile_path}/${active_profile}",
-        require => Service['tuned'],
-        path    => [ '/sbin', '/bin', '/usr/sbin' ],
-        # No need to notify services, tuned-adm restarts them alone
-      }
-
-      # Install the profile's file tree if source is given
-      if $source {
-        file { "${profile_path}/${profile}":
-          ensure  => 'directory',
-          owner   => 'root',
-          group   => 'root',
-          # This magically becomes 755 for directories
-          mode    => '0644',
-          recurse => true,
-          purge   => true,
-          source  => $source,
-          # For the parent directory
-          require => Package['tuned'],
-          before  => Exec["tuned-adm profile ${profile}"],
-          notify  => Service[$tuned_services],
-        }
-      }
-
-    }
-
-  } else {
-
-    # Report to both the agent and the master that we don't do anything
-    $message = "${::operatingsystem} ${::operatingsystemrelease} not supported by the tuned module"
-    notice($message)
-    notify { $message: withpath => true }
-
+  # One package
+  package {'tuned':
+    ensure => $ensure,
   }
 
-}
+  # Only if we are 'present'
+  if $ensure == 'present' {
+    # Enable the service
+    service { $tuned_services:
+      ensure    => true,
+      enable    => true,
+      hasstatus => true,
+      require   => Package['tuned'],
+    }
 
+    # Enable the chosen profile
+    exec { "tuned-adm profile ${profile}":
+      unless  => "grep -q -e '^${profile}\$' ${profile_path}/${active_profile}",
+      path    => [ '/sbin', '/bin', '/usr/sbin', '/usr/bin'],
+      require => Service[$tuned_services],
+      # No need to notify services, tuned-adm restarts them alone
+    }
+
+    # Install the profile's file tree if source is given
+    if $source {
+      file { "${profile_path}/${profile}":
+        ensure  => directory,
+        owner   => 'root',
+        group   => 'root',
+        # This magically becomes 755 for directories
+        mode    => '0644',
+        recurse => true,
+        purge   => true,
+        source  => $source,
+        # For the parent directory
+        require => Package['tuned'],
+        before  => Exec["tuned-adm profile ${profile}"],
+        notify  => Service[$tuned_services],
+      }
+    }
+  }
+}
