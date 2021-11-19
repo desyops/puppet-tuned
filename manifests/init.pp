@@ -30,29 +30,6 @@ class tuned (
 
     # Only if we are 'present'
     if $ensure != 'absent' {
-
-      # Ensure tuned is started before some DBMS, for when it's used to disable
-      # transparent hugepages
-      if $::service_provider == 'systemd' {
-        file { '/etc/systemd/system/tuned.service.d':
-          ensure => 'directory',
-          owner  => 'root',
-          group  => 'root',
-          mode   => '0755',
-        }
-        file { '/etc/systemd/system/tuned.service.d/before.conf':
-          owner   => 'root',
-          group   => 'root',
-          mode    => '0644',
-          content => "[Unit]\nBefore=mariadb.service mongod.service redis-server.service\n",
-        }
-        ~> exec { 'tuned systemctl daemon-reload':
-          command     => 'systemctl daemon-reload',
-          path        => $::path,
-          refreshonly => true,
-          before      => Service['tuned'],
-        }
-      }
       # Enable the service
       service { $tuned_services:
         ensure    => 'running',
