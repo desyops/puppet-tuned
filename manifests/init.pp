@@ -13,13 +13,13 @@
 #    profiles. Default: none
 #
 class tuned (
-  $ensure         = 'present',
-  $profile        = $::tuned::params::default_profile,
-  $source         = undef,
-  $tuned_services = $::tuned::params::tuned_services,
-  $profile_path   = $::tuned::params::profile_path,
-  $active_profile = $::tuned::params::active_profile,
-) inherits ::tuned::params {
+  Enum['present', 'absent'] $ensure = 'present',
+  String $profile                   = $tuned::params::default_profile,
+  Optional[String] $source          = undef,
+  Array $tuned_services             = $tuned::params::tuned_services,
+  String $profile_path              = $tuned::params::profile_path,
+  String $active_profile            = $tuned::params::active_profile,
+) inherits tuned::params {
 
   # One package
   package { 'tuned': ensure => $ensure }
