@@ -1,3 +1,4 @@
+# @api private
 class tuned::params {
 
   case $facts['os']['family'] {

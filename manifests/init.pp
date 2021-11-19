@@ -1,24 +1,31 @@
-# Class: tuned
+# @summary Configure the tuned adaptive system tuning daemon (tuned)
 #
-# The tuned adaptative system tuning daemon, introduced with Red Hat Enterprise
-# Linux 6.
+# @example Basic usage
+#   include tuned
 #
-# Parameters:
-#  $ensure:
-#    Presence of tuned, 'absent' to disable and remove. Default: 'present'
-#  $profile:
-#    Profile to use, see 'tuned-adm list'. Default: 'default'
-#  $source:
-#    Puppet source location for the profile's files, used only for non-default
-#    profiles. Default: none
+# @see https://tuned-project.org/
+#
+# @param ensure
+#   Presence of tuned, 'absent' to disable and remove. Default: 'present'
+# @param profile
+#   Profile to use, see 'tuned-adm list'. Default: 'balanced'
+# @param source
+#   Puppet source location for the profile's files, used only for non-default
+#   profiles. Default: undef
+# @param active_profile
+#   Name of the file, where the currently active profile is stored. Default: OS specific value
+# @param profile_path
+#   Path to the directory, where tuned stores profiles. Default: OS specific value
+# @param tuned_services
+#   Array of service names of the tuned daemon(s). Default: OS specific value
 #
 class tuned (
   Enum['present', 'absent'] $ensure = 'present',
   String $profile                   = $tuned::params::default_profile,
   Optional[String] $source          = undef,
-  Array $tuned_services             = $tuned::params::tuned_services,
-  String $profile_path              = $tuned::params::profile_path,
   String $active_profile            = $tuned::params::active_profile,
+  String $profile_path              = $tuned::params::profile_path,
+  Array $tuned_services             = $tuned::params::tuned_services,
 ) inherits tuned::params {
 
   # One package
@@ -47,7 +54,7 @@ class tuned (
     # Install the profile's file tree if source is given
     if $source {
       file { "${profile_path}/${profile}":
-        ensure  => 'directory',
+        ensure  => directory,
         owner   => 'root',
         group   => 'root',
         # This magically becomes 755 for directories
@@ -63,4 +70,3 @@ class tuned (
     }
   }
 }
-
