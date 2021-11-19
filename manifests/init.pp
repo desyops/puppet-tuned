@@ -22,13 +22,15 @@ class tuned (
 ) inherits tuned::params {
 
   # One package
-  package { 'tuned': ensure => $ensure }
+  package {'tuned':
+    ensure => $ensure,
+  }
 
   # Only if we are 'present'
-  if $ensure != 'absent' {
+  if $ensure == 'present' {
     # Enable the service
     service { $tuned_services:
-      ensure    => 'running',
+      ensure    => true,
       enable    => true,
       hasstatus => true,
       require   => Package['tuned'],
@@ -37,8 +39,8 @@ class tuned (
     # Enable the chosen profile
     exec { "tuned-adm profile ${profile}":
       unless  => "grep -q -e '^${profile}\$' ${profile_path}/${active_profile}",
-      require => Service['tuned'],
-      path    => [ '/sbin', '/bin', '/usr/sbin' ],
+      path    => [ '/sbin', '/bin', '/usr/sbin', '/usr/bin'],
+      require => Service[$tuned_services],
       # No need to notify services, tuned-adm restarts them alone
     }
 
